@@ -10,4 +10,4 @@ COPY --from=builder /app/build/ ./dist
 EXPOSE 8080
 ENV NODE_ENV = 'production'
 USER node
-CMD ["node", "--unhandled-rejections=strict", "./build/app.js"]
+CMD ["node", "--unhandled-rejections=strict", "./dist/app.js"]
