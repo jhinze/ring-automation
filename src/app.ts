@@ -36,7 +36,7 @@ app.use(expressLogger);
 
 app.get('/health', (req: any, res: { send: (arg0: string) => any; }) => {
   const lampCronHeartbeatAge = Date.now() - lampCronHeartbeat;
-  if (Date.now() - lampCronHeartbeat > sixMinutes) {
+  if (lampCronHeartbeatAge > sixMinutes) {
     throw new Error(`lampCronHeartbeat older than expected ${lampCronHeartbeatAge}`)
   } else {
     res.send('Okay')
@@ -75,15 +75,14 @@ async function turnOnLampIfArmedAndDark(): Promise<void> {
 async function isAfterSunsetOrBeforeDawn(location: Location): Promise<boolean> {
   const today = new Date(Date.now());
   if (!(sunInfo.date && isSameDay(today, sunInfo.date))) {
-    logger.info(`Getting sunrise and sunset information for ${today.toUTCString()} at ${location.locationDetails.name}`);
     const response = await getSunriseSunset(location);
-    sunInfo.date = today;
-    sunInfo.sunset = Date.parse(response.results.sunset);
-    sunInfo.sunrise = Date.parse(response.results.sunrise);
+    sunInfo = {
+      date: today,
+      sunset: Date.parse(response.results.sunset),
+      sunrise: Date.parse(response.results.sunrise)
+    }
   }
-  const isAfterSunsetOrBeforeDawn = isNowAfterSunsetOrBeforeDawn(sunInfo);
-  logger.info(`It is ${isAfterSunsetOrBeforeDawn ? '' : 'not '}after sunset or before dawn`)
-  return isAfterSunsetOrBeforeDawn;
+  return isNowAfterSunsetOrBeforeDawn(sunInfo);
 }
 
 function isSameDay(first: Date, second: Date): boolean {
@@ -94,10 +93,15 @@ function isSameDay(first: Date, second: Date): boolean {
 
 function isNowAfterSunsetOrBeforeDawn(sunInfo: SunInfo): boolean {
   const now = Date.now();
-  return sunInfo.sunset < now || sunInfo.sunrise > now;
+  const beforeDawn = sunInfo.sunrise > now;
+  const afterSunset = sunInfo.sunset < now;
+  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today`)
+  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today`)
+  return beforeDawn || afterSunset;
 }
 
 function getSunriseSunset(location: Location): Promise<any> {
+  logger.info(`Getting sunrise and sunset information for today at ${location.locationDetails.name}`);
   const latitude = location.locationDetails.geo_coordinates.latitude;
   const longitude = location.locationDetails.geo_coordinates.longitude;
   const url = `https://api.sunrise-sunset.org/json?lat=${latitude}&lng=${longitude}&date=today&formatted=0`;
