@@ -1,5 +1,4 @@
 import {RingDevice, Location, RingApi} from "ring-client-api";
-import {RingCamera} from "ring-client-api/lib/api/ring-camera";
 const express = require('express');
 const cron = require('node-cron');
 const pino = require('pino');
@@ -43,14 +42,14 @@ cron.schedule(lampCronExpression, () => {
 });
 
 async function turnOnLampIfArmedAndDark(): Promise<void> {
+  const switchName = 'Outlet Switch 1'
   const locations = await ringApi.getLocations();
   const location = locations[0];
-  const doorbellCamera = location.cameras.find((camera: RingCamera) => camera.data.description === 'Front Door');
   const devices = await location.getDevices();
-  const outletSwitch1 = devices.find((device: RingDevice) => device.data.name === 'Outlet Switch 1');
+  const outletSwitch1 = devices.find((device: RingDevice) => device.data.name === switchName);
   if (outletSwitch1) {
     if (await isArmed(location)) {
-      if (doorbellCamera && (isDarkOutside(doorbellCamera) || await isAfterSunsetOrBeforeDawn(location))) {
+      if (await isAfterSunsetOrBeforeDawn(location)) {
         await setLight(outletSwitch1, true);
       } else {
         await setLight(outletSwitch1, false);
@@ -58,6 +57,8 @@ async function turnOnLampIfArmedAndDark(): Promise<void> {
     } else if (lightWasTurnedOn) {
       await setLight(outletSwitch1, false);
     }
+  } else {
+    logger.error(`Device with name ${switchName} not found`);
   }
 }
 
@@ -97,12 +98,6 @@ async function isArmed(location: Location): Promise<boolean> {
   const mode = await location.getLocationMode();
   logger.info(`Location mode is ${mode.mode}`);
   return mode.mode === 'away';
-}
-
-function isDarkOutside(camera: RingCamera): boolean {
-  const isDark = camera.data.night_mode_status === 'true';
-  logger.info(`It appears ${isDark ? '' : 'not'} to be dark outside`);
-  return isDark;
 }
 
 async function setLight(device: RingDevice, on: boolean) {
