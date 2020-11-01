@@ -19,6 +19,16 @@ const ringApi = new RingApi({
 });
 const lampCronExpression = process.env.LAMP_CRON || '*/5 * * * *';
 const sixMinutes = 360000;
+interface SunInfo {
+  date: Date | undefined,
+  sunrise: number,
+  sunset: number
+}
+let sunInfo: SunInfo = {
+  date: undefined,
+  sunrise: 0,
+  sunset: 0
+}
 let lightWasTurnedOn = false;
 let lampCronHeartbeat = Date.now();
 
@@ -63,13 +73,28 @@ async function turnOnLampIfArmedAndDark(): Promise<void> {
 }
 
 async function isAfterSunsetOrBeforeDawn(location: Location): Promise<boolean> {
-  const response = await getSunriseSunset(location);
-  const sunset = Date.parse(response.results.sunset);
-  const sunrise = Date.parse(response.results.sunrise);
-  const now = Date.now();
-  const isAfterSunsetOrBeforeDawn = sunset < now || sunrise > now;
-  logger.info(`It is ${isAfterSunsetOrBeforeDawn ? '' : 'not'} after sunset or before dawn`)
+  const today = new Date(Date.now());
+  if (!(sunInfo.date && isSameDay(today, sunInfo.date))) {
+    logger.info(`Getting sunrise and sunset information for ${today.toUTCString()} at ${location.locationDetails.name}`);
+    const response = await getSunriseSunset(location);
+    sunInfo.date = today;
+    sunInfo.sunset = Date.parse(response.results.sunset);
+    sunInfo.sunrise = Date.parse(response.results.sunrise);
+  }
+  const isAfterSunsetOrBeforeDawn = isNowAfterSunsetOrBeforeDawn(sunInfo);
+  logger.info(`It is ${isAfterSunsetOrBeforeDawn ? '' : 'not '}after sunset or before dawn`)
   return isAfterSunsetOrBeforeDawn;
+}
+
+function isSameDay(first: Date, second: Date): boolean {
+  return first.getUTCFullYear() === second.getUTCFullYear() &&
+         first.getUTCMonth() === second.getUTCMonth() &&
+         first.getUTCDate() === second.getUTCDate();
+}
+
+function isNowAfterSunsetOrBeforeDawn(sunInfo: SunInfo): boolean {
+  const now = Date.now();
+  return sunInfo.sunset < now || sunInfo.sunrise > now;
 }
 
 function getSunriseSunset(location: Location): Promise<any> {
