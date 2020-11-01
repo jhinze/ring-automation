@@ -95,13 +95,13 @@ function isNowAfterSunsetOrBeforeDawn(sunInfo: SunInfo): boolean {
   const now = Date.now();
   const beforeDawn = sunInfo.sunrise > now;
   const afterSunset = sunInfo.sunset < now;
-  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today`)
-  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today`)
+  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today (UTC)`)
+  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today (UTC)`)
   return beforeDawn || afterSunset;
 }
 
 function getSunriseSunset(location: Location): Promise<any> {
-  logger.info(`Getting sunrise and sunset information for today at ${location.locationDetails.name}`);
+  logger.info(`Getting sunrise and sunset information for today (UTC) at ${location.locationDetails.name}`);
   const latitude = location.locationDetails.geo_coordinates.latitude;
   const longitude = location.locationDetails.geo_coordinates.longitude;
   const url = `https://api.sunrise-sunset.org/json?lat=${latitude}&lng=${longitude}&date=today&formatted=0`;
@@ -113,6 +113,8 @@ function getSunriseSunset(location: Location): Promise<any> {
       });
       response.on('end', () => {
         const response = JSON.parse(data);
+        logger.info(`Sunrise today (UTC) is ${response.results.sunrise}`)
+        logger.info(`Sunset today (UTC) is ${response.results.sunset}`)
         resolve(response);
       });
       response.on('error', (error: string) => {
