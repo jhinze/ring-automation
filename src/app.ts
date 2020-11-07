@@ -2,7 +2,6 @@ import {RingDevice, Location, RingApi} from "ring-client-api";
 const express = require('express');
 const cron = require('node-cron');
 const pino = require('pino');
-const expressPino = require('express-pino-logger');
 const https = require('https');
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -11,7 +10,6 @@ const logger = pino({
     translateTime: true
   }
 })
-const expressLogger = expressPino({ logger });
 const app = express();
 const port = 8080;
 const ringApi = new RingApi({
@@ -32,12 +30,12 @@ let sunInfo: SunInfo = {
 let lightWasTurnedOn = false;
 let lampCronHeartbeat = Date.now();
 
-app.use(expressLogger);
-
 app.get('/health', (req: any, res: { send: (arg0: string) => any; }) => {
   const lampCronHeartbeatAge = Date.now() - lampCronHeartbeat;
   if (lampCronHeartbeatAge > sixMinutes) {
-    throw new Error(`lampCronHeartbeat older than expected ${lampCronHeartbeatAge}`)
+    const errorMessage = `lampCronHeartbeat older than expected ${lampCronHeartbeatAge}`;
+    logger.error(errorMessage);
+    throw new Error(errorMessage);
   } else {
     res.send('Okay')
   }
@@ -81,22 +79,26 @@ async function isAfterSunsetOrBeforeDawn(location: Location): Promise<boolean> {
       sunset: Date.parse(response.results.sunset),
       sunrise: Date.parse(response.results.sunrise)
     }
+  } else {
+    logger.info(`Already have sun info for ${today}`);
   }
   return isNowAfterSunsetOrBeforeDawn(sunInfo);
 }
 
 function isSameDay(first: Date, second: Date): boolean {
-  return first.getUTCFullYear() === second.getUTCFullYear() &&
-         first.getUTCMonth() === second.getUTCMonth() &&
-         first.getUTCDate() === second.getUTCDate();
+  const sameDay = first.getUTCFullYear() === second.getUTCFullYear() &&
+                  first.getUTCMonth() === second.getUTCMonth() &&
+                  first.getUTCDate() === second.getUTCDate();
+  logger.info(`${first} and ${second} are ${sameDay ? '' : 'not '} the same day`);
+  return sameDay;
 }
 
 function isNowAfterSunsetOrBeforeDawn(sunInfo: SunInfo): boolean {
   const now = Date.now();
   const beforeDawn = sunInfo.sunrise > now;
   const afterSunset = sunInfo.sunset < now;
-  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today (UTC)`)
-  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today (UTC)`)
+  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today ${new Date(sunInfo.sunset)}`)
+  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today ${new Date(sunInfo.sunrise)}`)
   return beforeDawn || afterSunset;
 }
 
