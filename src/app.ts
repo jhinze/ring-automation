@@ -18,14 +18,12 @@ const ringApi = new RingApi({
 const lampCronExpression = process.env.LAMP_CRON || '*/5 * * * *';
 const sixMinutes = 360000;
 interface SunInfo {
-  date: Date | undefined,
-  sunrise: number,
-  sunset: number
+  sunrise: Date | undefined,
+  sunset: Date | undefined
 }
 let sunInfo: SunInfo = {
-  date: undefined,
-  sunrise: 0,
-  sunset: 0
+  sunrise: undefined,
+  sunset: undefined
 }
 let lightWasTurnedOn = false;
 let lampCronHeartbeat = Date.now();
@@ -72,12 +70,11 @@ async function turnOnLampIfArmedAndDark(): Promise<void> {
 
 async function isAfterSunsetOrBeforeDawn(location: Location): Promise<boolean> {
   const today = new Date(Date.now());
-  if (!(sunInfo.date && isSameDay(today, sunInfo.date))) {
+  if (!(sunInfo.sunrise && sunInfo.sunset && isSameDay(today, sunInfo.sunrise) && isSameDay(today, sunInfo.sunset))) {
     const response = await getSunriseSunset(location);
     sunInfo = {
-      date: today,
-      sunset: Date.parse(response.results.sunset),
-      sunrise: Date.parse(response.results.sunrise)
+      sunset: new Date(response.results.sunset),
+      sunrise: new Date(response.results.sunrise)
     }
   } else {
     logger.info(`Already have sun info for ${today}`);
@@ -94,11 +91,14 @@ function isSameDay(first: Date, second: Date): boolean {
 }
 
 function isNowAfterSunsetOrBeforeDawn(sunInfo: SunInfo): boolean {
-  const now = Date.now();
-  const beforeDawn = sunInfo.sunrise > now;
-  const afterSunset = sunInfo.sunset < now;
-  logger.info(`${new Date(now)} is ${beforeDawn ? '' : 'not '}before dawn of today ${new Date(sunInfo.sunset)}`)
-  logger.info(`${new Date(now)} is ${afterSunset ? '' : 'not '}after sunset of today ${new Date(sunInfo.sunrise)}`)
+  if (!(sunInfo.sunrise && sunInfo.sunset)) {
+    throw Error("sunrise or sunset is undefined");
+  }
+  const now = new Date(Date.now());
+  const beforeDawn = sunInfo.sunrise.valueOf() > now.valueOf();
+  const afterSunset = sunInfo.sunset.valueOf() < now.valueOf();
+  logger.info(`${now} is ${beforeDawn ? '' : 'not '}before dawn of today ${sunInfo.sunset}`)
+  logger.info(`${now} is ${afterSunset ? '' : 'not '}after sunset of today ${sunInfo.sunrise}`)
   return beforeDawn || afterSunset;
 }
 
