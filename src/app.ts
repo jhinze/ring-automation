@@ -58,7 +58,10 @@ ringApi.onRefreshTokenUpdated.subscribe(async ({ newRefreshToken, oldRefreshToke
 )
 
 function getToken(): string {
-  let token = fs.readFileSync(process.env.TOKEN_FILE, "utf-8");
+  let token = undefined;
+  if (process.env.TOKEN_FILE && fs.existsSync(process.env.TOKEN_FILE)) {
+    token = fs.readFileSync(process.env.TOKEN_FILE, "utf-8");
+  }
   if((!token || token.length === 0) && process.env.REFRESH_TOKEN) {
     return process.env.REFRESH_TOKEN.toString();
   }
