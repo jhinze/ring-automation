@@ -3,6 +3,7 @@ const express = require('express');
 const cron = require('node-cron');
 const pino = require('pino');
 const https = require('https');
+const fs = require("fs");
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   prettyPrint: {
@@ -12,9 +13,6 @@ const logger = pino({
 })
 const app = express();
 const port = 8080;
-const ringApi = new RingApi({
-  refreshToken: String(process.env.REFRESH_TOKEN),
-});
 const lampCronExpression = process.env.LAMP_CRON || '*/5 * * * *';
 const sixMinutes = 360000;
 interface SunInfo {
@@ -27,6 +25,11 @@ let sunInfo: SunInfo = {
 }
 let lightWasTurnedOn = false;
 let lampCronHeartbeat = Date.now();
+let token = getToken();
+
+const ringApi = new RingApi({
+  refreshToken: token,
+});
 
 app.get('/health', (req: any, res: { send: (arg0: string) => any; }) => {
   const lampCronHeartbeatAge = Date.now() - lampCronHeartbeat;
@@ -46,6 +49,25 @@ app.listen(port, () => {
 cron.schedule(lampCronExpression, () => {
   turnOnLampIfArmedAndDark().then(() => lampCronHeartbeat = Date.now());
 });
+
+ringApi.onRefreshTokenUpdated.subscribe(async ({ newRefreshToken, oldRefreshToken }) => {
+    console.log('Refresh Token Updated');
+    putToken(newRefreshToken);
+    token = newRefreshToken;
+  }
+)
+
+function getToken(): string {
+  let token = fs.readFileSync(process.env.TOKEN_FILE, "utf-8");
+  if((!token || token.length === 0) && process.env.REFRESH_TOKEN) {
+    return process.env.REFRESH_TOKEN.toString();
+  }
+  return token;
+}
+
+function putToken(token: string): void {
+  fs.writeFileSync(process.env.TOKEN_FILE, token);
+}
 
 async function turnOnLampIfArmedAndDark(): Promise<void> {
   const switchName = 'Outlet Switch 1'
