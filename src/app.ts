@@ -51,7 +51,7 @@ cron.schedule(lampCronExpression, () => {
 });
 
 ringApi.onRefreshTokenUpdated.subscribe(async ({ newRefreshToken, oldRefreshToken }) => {
-    console.log('Refresh Token Updated');
+    logger.info('Refresh Token Updated');
     putToken(newRefreshToken);
     token = newRefreshToken;
   }
@@ -73,6 +73,7 @@ function putToken(token: string): void {
 }
 
 async function turnOnLampIfArmedAndDark(): Promise<void> {
+  logger.info(`Turning on lamp if armed and dark`)
   const switchName = 'Outlet Switch 1'
   const locations = await ringApi.getLocations();
   const location = locations[0];
