@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.3",
+    "express": "^4.19.2",
     "express-pino-logger": "^5.0.0",
     "homebridge": "^1.1.6",
     "homebridge-ring": "^9.12.1",
